@@ -38,6 +38,11 @@ static enum ibv_wr_opcode opcode_atomic_array[] = {IBV_WR_ATOMIC_CMP_AND_SWP,IBV
 struct perftest_parameters* duration_param;
 struct check_alive_data check_alive_data;
 
+static inline long long time_diff_us(struct timeval* start, struct timeval* end) {
+    long long sec_diff = end->tv_sec - start->tv_sec;
+    long long usec_diff = end->tv_usec - start->tv_usec;
+    return sec_diff * 1000000LL + usec_diff;
+}
 
 /******************************************************************************
  * Beginning
@@ -3671,10 +3676,25 @@ int run_iter_bw(struct pingpong_context *ctx,struct perftest_parameters *user_pa
 		gap_cycles = cpu_mhz * gap_time;
 	}
 
+	int slow_start_enabled = user_param->slow_start_duration > 0 && user_param->slow_start_steps > 0;
+	int slow_start_duration_us = user_param->slow_start_duration * 1000000;
+	int slow_start_steps  = user_param->slow_start_steps;
+	int step_duration_us = slow_start_steps == 0 ? 0 : (slow_start_duration_us/slow_start_steps);
+	struct timeval t_start, t_end;
+	gettimeofday(&t_start, NULL);
 	/* main loop for posting */
 	while (totscnt < tot_iters  || totccnt < tot_iters ||
 		(user_param->test_type == DURATION && user_param->state != END_STATE) ) {
-
+		if(slow_start_enabled && slow_start_steps >= 0) {
+			gettimeofday(&t_end, NULL);
+			long long diff_us = time_diff_us(&t_start, &t_end);
+			if (diff_us >= step_duration_us) {
+				memcpy((void*)&t_start, (void*)&t_end, sizeof(struct timeval));
+				slow_start_duration_us -= diff_us;
+				slow_start_steps--;
+			}
+			usleep((2<<slow_start_steps)*10);
+		}
 		/* main loop to run over all the qps and post each time n messages */
 		for (index =0 ; index < num_of_qps ; index++) {
 			if (user_param->rate_limit_type == SW_RATE_LIMIT && is_sending_burst == 0) {
@@ -4108,9 +4128,25 @@ int run_iter_bw_infinitely(struct pingpong_context *ctx,struct perftest_paramete
 
 	user_param->tposted[0] = get_cycles();
 
+	int slow_start_enabled = user_param->slow_start_duration > 0 && user_param->slow_start_steps > 0;
+	int slow_start_duration_us = user_param->slow_start_duration * 1000000;
+	int slow_start_steps  = user_param->slow_start_steps;
+	int step_duration_us = slow_start_steps == 0 ? 0 : (slow_start_duration_us/slow_start_steps);
+	struct timeval t_start, t_end;
+	gettimeofday(&t_start, NULL);
 	/* main loop for posting */
 	while (1) {
-	/* main loop to run over all the qps and post each time n messages */
+		if(slow_start_enabled && slow_start_steps >= 0) {
+			gettimeofday(&t_end, NULL);
+			long long diff_us = time_diff_us(&t_start, &t_end);
+			if (diff_us >= step_duration_us) {
+				memcpy((void*)&t_start, (void*)&t_end, sizeof(struct timeval));
+				slow_start_duration_us -= diff_us;
+				slow_start_steps--;
+			}
+			usleep((2<<slow_start_steps)*10);
+		}
+		/* main loop to run over all the qps and post each time n messages */
 		for (index = 0 ; index < num_of_qps ; index++) {
 
 			while ((ctx->scnt[index] - ctx->ccnt[index] + user_param->post_list) <= user_param->tx_depth) {

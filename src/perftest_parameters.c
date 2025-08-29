@@ -740,6 +740,13 @@ static void usage(const char *argv0, VerbType verb, TestType tst, int connection
 		#endif
 	}
 
+	if (tst == BW && verb == WRITE) {
+		printf("      --slow_start_duration ");
+		printf(" Slow start duration when send packages. Units is seconds. Default is 90 seconds\n");
+		printf("      --slow_start_steps, default is 9");
+		printf(" Slow start steps when send packages.\n");
+	}
+
 	putchar('\n');
 }
 /******************************************************************************
@@ -978,6 +985,8 @@ static void init_perftest_params(struct perftest_parameters *user_param)
 	user_param->flows			= DEF_FLOWS;
 	user_param->flows_burst			= 1;
 	user_param->perform_warm_up		= 0;
+	user_param->slow_start_duration = 0;
+	user_param->slow_start_steps    = 0;
 	user_param->use_ooo			= 0;
 	user_param->disable_pcir		= 0;
 	user_param->source_ip		= NULL;
@@ -2524,6 +2533,8 @@ int parser(struct perftest_parameters *user_param,char *argv[], int argc)
 	static int remote_mac_flag = 0;
 	static int reply_every_flag = 0;
 	static int perform_warm_up_flag = 0;
+	static int slow_start_duration_flag = 0;
+	static int slow_start_steps_flag = 0;
 	static int use_ooo_flag = 0;
 	static int vlan_en = 0;
 	static int vlan_pcp_flag = 0;
@@ -2701,6 +2712,8 @@ int parser(struct perftest_parameters *user_param,char *argv[], int argc)
 			{.name = "flows_burst", .has_arg = 1, .flag = &flows_burst_flag, .val = 1},
 			{.name = "reply_every", .has_arg = 1, .flag = &reply_every_flag, .val = 1},
 			{.name = "perform_warm_up", .has_arg = 0, .flag = &perform_warm_up_flag, .val = 1},
+			{.name = "slow_start_duration", .has_arg = 1, .flag = &slow_start_duration_flag, .val = 1},
+			{.name = "slow_start_steps", .has_arg = 1, .flag = &slow_start_steps_flag, .val = 1},
 			{.name = "vlan_en", .has_arg = 0, .flag = &vlan_en, .val = 1},
 			{.name = "vlan_pcp", .has_arg = 1, .flag = &vlan_pcp_flag, .val = 1},
 			{.name = "recv_post_list", .has_arg = 1, .flag = &recv_post_list_flag, .val = 1},
@@ -3060,6 +3073,14 @@ int parser(struct perftest_parameters *user_param,char *argv[], int argc)
 				if (typical_pkt_size_flag) {
 					CHECK_VALUE_IN_RANGE(user_param->typical_pkt_size,int,0,0xFFFF,"Typical pkt size",not_int_ptr);
 					typical_pkt_size_flag = 0;
+				}
+				if (slow_start_duration_flag) {
+					CHECK_VALUE_NON_NEGATIVE(user_param->slow_start_duration,int,"Slow start duration",not_int_ptr);
+					slow_start_duration_flag = 0;
+				}
+				if (slow_start_steps_flag) {
+					CHECK_VALUE_NON_NEGATIVE(user_param->slow_start_steps,int,"Slow start steps",not_int_ptr);
+					slow_start_steps_flag = 0;
 				}
 				if (rate_units_flag) {
 					if (strcmp("M",optarg) == 0) {

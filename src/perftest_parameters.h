@@ -659,6 +659,8 @@ struct perftest_parameters {
 	int				flows_burst;
 	uint32_t			reply_every;
 	int				perform_warm_up;
+	int				slow_start_duration;
+	int				slow_start_steps;
 	int				use_ooo;
 	int				vlan_en;
 	uint32_t			vlan_pcp;
